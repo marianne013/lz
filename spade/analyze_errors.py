@@ -19,14 +19,16 @@ import datetime as dt
 
 
 def dirs_in_time_range(time_in_hours):
+    """ returns a list of error log directories in a given time frame
+    (hours before now)"""
     now = dt.datetime.now()
     ago = now-dt.timedelta(hours=int(time_in_hours))
     basepath = '/opt/spade/spade/cache/problems'
     error_dirs = []
     for cdir in os.listdir(basepath):
         path = os.path.join(basepath, cdir)
-        st = os.stat(path)
-        mtime = dt.datetime.fromtimestamp(st.st_mtime)
+        osstat = os.stat(path)
+        mtime = dt.datetime.fromtimestamp(osstat.st_mtime)
         if mtime > ago:
             error_dirs.append(path)
             # print('%s modified %s'%(path, mtime))
@@ -44,14 +46,15 @@ def find_affected_files(files_string, stacktrace):
     if os.path.isfile(stacktrace):
         stackfile = open(stacktrace, "r")
         stackfile_content = stackfile.read()
-        result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?)\"', stackfile_content)
+        result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?).mdc3', stackfile_content)
         if result:
-            affected_file = result.group(1)
+            affected_file = result.group(0)
             file_list.append(affected_file)
     return file_list
 
 
 def error_type(error_dir):
+    """determines the type of error for each error directory"""
     # get files in directory and check if any of the keywords are present
     content = os.listdir(error_dir)
     files_string = error_dir+"/files/"
@@ -67,6 +70,18 @@ def error_type(error_dir):
     matching = [s for s in content if "pre_shipper" in s]
     if matching:
         file_list = find_affected_files(files_string, stacktrace)
+        # preshipper errors tend not to contain the filename in the stacktrace
+        file_pattern = error_dir+'/pre_shipper.FileToken_*'
+        error_file = glob.glob(file_pattern)
+        if len(error_file) == 1:
+            error_log = open(error_file[0], "r")
+            error_content = error_log.read()
+            result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?).mdc3', error_content)
+            if result:
+                affected_file = result.group(0)
+                file_list.append(affected_file)
+        else:
+            print("More than one error log for preshipper error found, please check.")
         summary = ['pre_shipper', err_number, file_list]
         return summary
 
@@ -99,7 +114,8 @@ def error_type(error_dir):
 
 def main():
     parser = argparse.ArgumentParser(description='Tally errors')
-    parser.add_argument('-t', '--time', help='time range for errors in hours, default 24', required=False)
+    parser.add_argument('-t', '--time', help='time range for errors in hours, default 24',
+                        required=False)
     args = vars(parser.parse_args())
 
     time_range = 24
