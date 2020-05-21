@@ -6,7 +6,10 @@ The errors are grouped by type:
 (c) fetcher.FileToken
 (d) post_shipper.FileToken
 (e) Parallel Gateway
-(f) other
+(f) gather fork
+(g) scatter fork
+(h) places
+(i) other
 """
 
 from __future__ import print_function
@@ -23,7 +26,7 @@ def dirs_in_time_range(time_in_hours):
     (hours before now)"""
     now = dt.datetime.now()
     ago = now-dt.timedelta(hours=int(time_in_hours))
-    basepath = '/opt/spade/spade/cache/problems'
+    basepath = '/pnfs/hep.ph.ic.ac.uk/data/lz/spade/cache/problems'
     error_dirs = []
     for cdir in os.listdir(basepath):
         path = os.path.join(basepath, cdir)
@@ -37,16 +40,22 @@ def dirs_in_time_range(time_in_hours):
 
 def find_affected_files(files_string, stacktrace):
     """tries to find the files (semaphore or root files) affected by an error;
-    searches the 'files' dir and the stacktrace if present;
+    searches the 'files' and 'files/payload' dirs and the stacktrace if present;
     returns a list of files"""
     file_list = []
     if os.path.isdir(files_string):
-        file_pattern = files_string+'*_raw.mdc3'
+        file_pattern = files_string+'*_raw.mdc[2|3]'
         file_list = glob.glob(file_pattern)
+    payload_string = files_string+'payload/'
+    if os.path.isdir(payload_string):
+        file_pattern = payload_string+'*root'
+        rootfile = (glob.glob(file_pattern))
+        if rootfile:
+            file_list.append(rootfile[0])
     if os.path.isfile(stacktrace):
         stackfile = open(stacktrace, "r")
         stackfile_content = stackfile.read()
-        result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?).mdc3', stackfile_content)
+        result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?).mdc[2|3]', stackfile_content)
         if result:
             affected_file = result.group(0)
             file_list.append(affected_file)
@@ -76,7 +85,7 @@ def error_type(error_dir):
         if len(error_file) == 1:
             error_log = open(error_file[0], "r")
             error_content = error_log.read()
-            result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?).mdc3', error_content)
+            result = re.search('/pnfs/hep.ph.ic.ac.uk/data/lz(.+?).mdc[2|3]', error_content)
             if result:
                 affected_file = result.group(0)
                 file_list.append(affected_file)
@@ -103,6 +112,23 @@ def error_type(error_dir):
         summary = ['parallel_gateway', err_number, file_list]
         return summary
 
+    matching = [s for s in content if "gather.fork" in s]
+    if matching:
+        file_list = find_affected_files(files_string, stacktrace)
+        summary = ['gatherfork', err_number, file_list]
+        return summary
+
+    matching = [s for s in content if "scatter.fork" in s]
+    if matching:
+        file_list = find_affected_files(files_string, stacktrace)
+        summary = ['scatterfork', err_number, file_list]
+        return summary
+
+    matching = [s for s in content if "placer" in s]
+    if matching:
+        file_list = find_affected_files(files_string, stacktrace)
+        summary = ['placer', err_number, file_list]
+        return summary
 
     # other errors
     file_list = find_affected_files(files_string, stacktrace)
@@ -113,6 +139,7 @@ def error_type(error_dir):
 
 
 def main():
+    print("Looking for errors in /pnfs/hep.ph.ic.ac.uk/data/lz/spade/cache/problems/")
     parser = argparse.ArgumentParser(description='Tally errors')
     parser.add_argument('-t', '--time', help='time range for errors in hours, default 24',
                         required=False)
@@ -129,6 +156,9 @@ def main():
     n_of_ex = 0
     n_of_post = 0
     n_of_para = 0
+    n_of_gfork = 0
+    n_of_sfork = 0
+    n_of_placer = 0
     n_of_other = 0
 
     if not error_dirs:
@@ -147,6 +177,12 @@ def main():
                 n_of_post = n_of_post+1
             elif error_summary[0] == "parallel_gateway":
                 n_of_para = n_of_para+1
+            elif error_summary[0] == "gatherfork":
+                n_of_gfork = n_of_gfork+1
+            elif error_summary[0] == "scatterfork":
+                n_of_sfork = n_of_sfork+1
+            elif error_summary[0] == "placer":
+                n_of_placer = n_of_placer+1
             else:
                 n_of_other = n_of_other+1
 
@@ -159,12 +195,15 @@ def main():
     print("Number of pre_shipper errors: %s" %n_of_pre)
     print("Number of post_shipper errors: %s" %n_of_post)
     print("Number of Parallel Gateway errors: %s" %n_of_para)
+    print("Number of gather fork errors: %s" %n_of_gfork)
+    print("Number of scatter fork errors: %s" %n_of_sfork)
+    print("Number of placer errors: %s" %n_of_placer)
     print("Number of other errors: %s" %n_of_other)
 
     print("\nDirectly affected files found in the logs:")
     for es in error_summaries:
         if es[2]:
-            print(es[0], es[2][0])
+            print(es[1], es[0], es[2][0])
 
 
 if __name__ == "__main__":
