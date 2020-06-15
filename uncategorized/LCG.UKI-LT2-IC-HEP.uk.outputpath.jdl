@@ -1,0 +1,14 @@
+[
+Executable = "output_examples.sh";
+StdOutput = "job.log";
+StdError = "job.log";
+InputSandbox = "output_examples.sh";
+Arguments = "donotuploadbyhand";
+OutputSandbox = "job.log";
+Site = "LCG.UKI-LT2-IC-HEP.uk";
+JobName = "DiracOut";
+Platform = "AnyPlatform";
+OutputSE = "UKI-LT2-IC-HEP-disk";
+OutputPath = "/special_path";
+OutputData = { "*.txt", "*.dat" };
+]

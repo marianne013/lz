@@ -1,0 +1,13 @@
+[
+Executable = "output_examples.sh";
+StdOutput = "job.log";
+StdError = "job.log";
+InputSandbox = "output_examples.sh";
+Arguments = "specifylfn";
+OutputSandbox = "job.log";
+Site = "LCG.UKI-LT2-IC-HEP.uk";
+JobName = "DiracOut";
+Platform = "AnyPlatform";
+OutputSE = "UKI-LT2-IC-HEP-disk";
+OutputData = { "LFN:/gridpp/dbauer/testlfn/txt/testfile.lfn1.txt", "LFN:/gridpp/dbauer/testlfn/txt/testfile.lfn2.txt", "LFN:/gridpp/dbauer/testlfn/dat/testfile.lfn3.dat" };
+]
